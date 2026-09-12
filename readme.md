@@ -5,6 +5,7 @@ Features:
 - Webhooks on errors
 - Separate logfile
 - Ip allow-list
+- Encrypts IP's
 
 Usage in example.py
 I know this is a very small project but i was bored and decided to make this
