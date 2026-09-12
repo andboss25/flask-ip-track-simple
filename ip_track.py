@@ -11,6 +11,7 @@ import requests
 import functools
 import datetime
 import time
+import xxhash
 
 logging.getLogger("werkzeug").disabled = True
 
@@ -31,6 +32,8 @@ proxy_flags = {
         "content":"Ip fault fromt %IP%, Ip header is %IP_HEADER%, subtype of error is %IP_ERROR% %REPEAT%"
     },
     "webhook_on":['ALLOWLIST_FAULT','PROXY_HEADER_NOT_FOUND'],
+
+    "crypt_ips":False
 
 }
 
@@ -90,6 +93,11 @@ def track_ip():
 
             if ip == 0:
                 return "<h1>Proxy fault</h1><p>If you are accesing the website without a proxy then cease imediatly, if you are a normal user refresh, this issue will solve itself.</p>",500
+
+            if proxy_flags['crypt_ips']:
+                ip_crypt = xxhash.xxh3_64()
+                ip_crypt.update(ip.encode())
+                ip = f"[ENCRYPTED: {ip_crypt.hexdigest()}]"
             logger.info(f"{ip} [{datetime.datetime.now()}] -> {request.method} {request.full_path} => {response.status_code}")
             return response
         
