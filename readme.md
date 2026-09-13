@@ -5,8 +5,10 @@ Features:
 - Webhooks on errors
 - Separate logfile
 - Ip allow-list
-- Encrypts IP's
+- Hashs IP's option
 
 Usage in example.py
 I know this is a very small project but i was bored and decided to make this
 aside from my bigger projects.
+
+TODO fix 'store every' bug.

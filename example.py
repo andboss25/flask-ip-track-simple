@@ -20,7 +20,11 @@ ip_track.proxy_flags = {
     "webhook_on":['PROXY_HEADER_NOT_FOUND'],
     "webhook_url":"",
 
-    "crypt_ips":True
+    "crypt_ips":False,
+    "track_headers":True,
+
+    "store_every":1,
+    "ip_db_filename":"ip_base.pikle"
 }
 
 app = Flask(__name__)

@@ -12,12 +12,9 @@ import functools
 import datetime
 import time
 import xxhash
+import ip_utils
 
-logging.getLogger("werkzeug").disabled = True
-
-logging.basicConfig(filename='ip.log', encoding='utf-8', level=logging.DEBUG)
-
-logger = logging.getLogger(__name__)
+import os.path
 
 proxy_flags = {
     "use_proxy":False,
@@ -33,9 +30,20 @@ proxy_flags = {
     },
     "webhook_on":['ALLOWLIST_FAULT','PROXY_HEADER_NOT_FOUND'],
 
-    "crypt_ips":False
+    "crypt_ips":False,
+    "track_headers":False,
 
+    "store_every":10,
+    "ip_db_filename":"ip_base.pikle"
 }
+
+base = ip_utils.IpBase()
+base.file_path = proxy_flags["ip_db_filename"]
+
+if os.path.isfile(proxy_flags["ip_db_filename"]):
+    base = ip_utils.IpBase.deserialize(open(proxy_flags["ip_db_filename"],'rb').read())
+
+base.store_every_unit = proxy_flags['store_every']
 
 def convert_webhook_template(data,ip,ip_header,ip_error,path,repeat):
     new_data = {}
@@ -64,7 +72,7 @@ def alert_webhook(ip,ip_header,ip_error,path):
 
 def get_real_ip():
     if proxy_flags['allow_list'] and request.remote_addr not in proxy_flags['allowed_ips']:
-        logger.error(f"IP fault, IP NOT IN ALLOWLIST, {request.remote_addr} => {request.method} {request.full_path}, header dump: {str(request.headers.__dict__)}")
+        base.logger.error(f"IP fault, IP NOT IN ALLOWLIST, {request.remote_addr} => {request.method} {request.full_path}, header dump: {str(request.headers.__dict__)}")
         threading.Thread(target=alert_webhook,args=(request.remote_addr,request.headers.get(proxy_flags['ip_address_header']),'ALLOWLIST_FAULT',request.full_path)).start()
         return 0
 
@@ -76,7 +84,7 @@ def get_real_ip():
     if ip_header != None:
         return ip_header
 
-    logger.error(f"IP fault the header is {ip_header}, {request.remote_addr} => {request.method} {request.full_path}, header dump: {str(request.headers.__dict__)}")
+    base.logger.error(f"IP fault the header is {ip_header}, {request.remote_addr} => {request.method} {request.full_path}, header dump: {str(request.headers.__dict__)}")
     threading.Thread(target=alert_webhook,args=(request.remote_addr,request.headers.get(proxy_flags['ip_address_header']),'PROXY_HEADER_NOT_FOUND',request.full_path)).start()
 
     if proxy_flags['deny_proxy_fault'] == True:
@@ -94,11 +102,17 @@ def track_ip():
             if ip == 0:
                 return "<h1>Proxy fault</h1><p>If you are accesing the website without a proxy then cease imediatly, if you are a normal user refresh, this issue will solve itself.</p>",500
 
-            if proxy_flags['crypt_ips']:
-                ip_crypt = xxhash.xxh3_64()
-                ip_crypt.update(ip.encode())
-                ip = f"[ENCRYPTED: {ip_crypt.hexdigest()}]"
-            logger.info(f"{ip} [{datetime.datetime.now()}] -> {request.method} {request.full_path} => {response.status_code}")
+            base.append(ip_utils.IpRecord(
+                ip,
+                request.full_path,
+                request.method,
+                response.status_code,
+                request.headers,
+                time.time(),
+                hashed=proxy_flags['crypt_ips'],
+                track_headers=proxy_flags['track_headers']
+            ))
+
             return response
         
         return decorated
